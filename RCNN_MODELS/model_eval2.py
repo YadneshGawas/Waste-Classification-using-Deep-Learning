@@ -103,6 +103,7 @@ def evaluate_coco(model, data_loader, annotation_json, result_json):
     map_50_95 = coco_eval.stats[0]  # AP@[0.50:0.95]
     map_50 = coco_eval.stats[1]      # AP@0.50
 
+    print(f"\n📊 All Metric: {coco_eval.stats}")
     print(f"\n📊 Mean Average Precision (mAP) @50:95: {map_50_95:.4f}")
     print(f"📊 Mean Average Precision (mAP) @50: {map_50:.4f}\n")
 
