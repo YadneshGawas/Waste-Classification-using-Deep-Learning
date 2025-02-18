@@ -1,13 +1,14 @@
 import torch
-import torchvision
-import torchvision.transforms as T
-import os
 import json
-from pycocotools.coco import COCO
-from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+import torchvision
+from torchvision import transforms
 from torch.utils.data import DataLoader, Dataset
+from torchvision.datasets import CocoDetection
+from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+import os
+from pycocotools.coco import COCO
 from PIL import Image
-from torch import autocast
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 # Debugging function to check COCO dataset format
 def check_coco_format(json_path):
@@ -71,56 +72,66 @@ for dir in debug_dirs:
     check_coco_format(os.path.join(dir, "_annotations.coco.json"))
 
 # Define transformations
-transform = T.Compose([T.ToTensor()])
+transform = transforms.Compose([transforms.ToTensor()])
 
 # Create datasets
-dataset_train = COCODataset(train_dir, transforms=transform)
+dataset_test = COCODataset(test_dir, transforms=transform)
 dataset_val = COCODataset(val_dir, transforms=transform)
 
 # Data loaders
 batch_size = 4  # <-- Change batch size here if needed (8 is recommended for RTX 4060)
-train_loader = DataLoader(dataset_train, batch_size=batch_size, shuffle=True, collate_fn=lambda x: tuple(zip(*x)))
+train_loader = DataLoader(dataset_test, batch_size=batch_size, shuffle=True, collate_fn=lambda x: tuple(zip(*x)))
 val_loader = DataLoader(dataset_val, batch_size=batch_size, shuffle=False, collate_fn=lambda x: tuple(zip(*x)))
 
-# Load a pre-trained Faster R-CNN model
-model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
-num_classes = len(dataset_train.coco.cats) + 1  # Categories + background
+# Set device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Paths to the model and dataset
+model_path = r"C:\Users\yadne\Desktop\24CP20\Resources\Models\faster_rcnn_3760.pth"
+
+# Load the model
+
+# Define the model architecture (use the same model you trained with)
+model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=False)  # Adjust if using a custom model
+num_classes = len(dataset_test.coco.cats) + 1  # Categories + background
 in_features = model.roi_heads.box_predictor.cls_score.in_features
 model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
-
-# Training setup
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print("Using device:", {device})
+# Load the state dictionary
+model.load_state_dict(torch.load(model_path, map_location=device))
 model.to(device)
+model.eval()
 
-# Optimizer & Mixed Precision
-optimizer = torch.optim.SGD(model.parameters(), lr=0.005, momentum=0.9, weight_decay=0.0005)
-scaler = torch.GradScaler("cuda")  # Enable AMP
+val_loader = DataLoader(dataset_val, batch_size=batch_size, shuffle=False, collate_fn=lambda x: tuple(zip(*x)))
+test_loader = DataLoader(dataset_test, batch_size=batch_size, shuffle=False, collate_fn=lambda x: tuple(zip(*x)))
 
-# Training loop
-num_epochs = 10
-for epoch in range(num_epochs):
-    model.train()
-    total_loss = 0
+# Evaluation
+all_preds = []
+all_labels = []
 
-    for images, targets in train_loader:
-        print("Running")
+with torch.no_grad():
+    for images, targets in test_loader:
         images = [img.to(device) for img in images]
-        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
-        optimizer.zero_grad()
+        # Get model predictions
+        outputs = model(images)
         
-        with autocast(device_type='cuda', dtype=torch.float16):
-            loss_dict=model(images,targets)
-            losses=sum(loss for loss in loss_dict.values())
-            
-        scaler.scale(losses).backward()  # Scale loss for stability
-        scaler.step(optimizer)
-        scaler.update()  # Update the scaler
+        for output, target in zip(outputs, targets):
+            if 'labels' in output and 'labels' in target:
+                pred_labels = output['labels'].detach().cpu().numpy().tolist()
+                true_labels = target['labels'].detach().cpu().numpy().tolist()
+                all_preds.extend(pred_labels)
+                all_labels.extend(true_labels)
 
-        total_loss += losses.item()
+# Ensure valid predictions
+if not all_labels or not all_preds:
+    print("No valid predictions or labels found. Cannot compute metrics.")
+else:
+    accuracy = accuracy_score(all_labels, all_preds)
+    precision = precision_score(all_labels, all_preds, average='weighted', zero_division=0)
+    recall = recall_score(all_labels, all_preds, average='weighted', zero_division=0)
+    f1 = f1_score(all_labels, all_preds, average='weighted', zero_division=0)
 
-    print(f"Epoch {epoch+1}, Loss: {total_loss / len(train_loader)}")
-
-torch.save(model.state_dict(), "faster_rcnn_3760_10.pth")
-print("Training complete!")
+    print(f"Validation Accuracy: {accuracy:.4f}")
+    print(f"Precision: {precision:.4f}")
+    print(f"Recall: {recall:.4f}")
+    print(f"F1 Score: {f1:.4f}")

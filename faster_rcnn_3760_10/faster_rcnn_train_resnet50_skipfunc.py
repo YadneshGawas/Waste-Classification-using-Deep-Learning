@@ -46,6 +46,10 @@ class COCODataset(Dataset):
             boxes.append([x, y, x + w, y + h])
             labels.append(ann['category_id'])
         
+        # Skip images with no annotations
+        if len(boxes) == 0:
+            return None, None  # Skip image with no bounding boxes
+        
         boxes = torch.as_tensor(boxes, dtype=torch.float32)
         labels = torch.as_tensor(labels, dtype=torch.int64)
         
@@ -55,7 +59,7 @@ class COCODataset(Dataset):
             image = self.transforms(image)
         
         return image, target
-    
+
     def __len__(self):
         return len(self.img_ids)
 
@@ -95,7 +99,7 @@ model.to(device)
 
 # Optimizer & Mixed Precision
 optimizer = torch.optim.SGD(model.parameters(), lr=0.005, momentum=0.9, weight_decay=0.0005)
-scaler = torch.GradScaler("cuda")  # Enable AMP
+scaler = torch.GradScaler()  # Enable AMP (Automatic Mixed Precision)
 
 # Training loop
 num_epochs = 10
@@ -104,15 +108,24 @@ for epoch in range(num_epochs):
     total_loss = 0
 
     for images, targets in train_loader:
-        print("Running")
-        images = [img.to(device) for img in images]
+        # Skip if the image or target is None (image with no annotations)
+        images = [img.to(device) for img in images if img is not None]  # Skip None images
+        targets = [target for target in targets if target is not None]  # Skip None targets
+
+        # Skip batch if there are no valid images/targets in it
+        if len(images) == 0 or len(targets) == 0:
+            print("Skipping batch with no valid images/targets.")
+            continue
+
+        # Move targets to the device
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         optimizer.zero_grad()
         
+        # Mixed precision
         with autocast(device_type='cuda', dtype=torch.float16):
-            loss_dict=model(images,targets)
-            losses=sum(loss for loss in loss_dict.values())
+            loss_dict = model(images, targets)
+            losses = sum(loss for loss in loss_dict.values())
             
         scaler.scale(losses).backward()  # Scale loss for stability
         scaler.step(optimizer)
@@ -122,5 +135,6 @@ for epoch in range(num_epochs):
 
     print(f"Epoch {epoch+1}, Loss: {total_loss / len(train_loader)}")
 
+# Save model
 torch.save(model.state_dict(), "faster_rcnn_3760_10.pth")
 print("Training complete!")

@@ -60,8 +60,8 @@ class COCODataset(Dataset):
 
 
 # Dataset paths
-dataset_root = r"C:\Users\yadne\Desktop\24CP20\Resources\Models\RCNN_MODELS\COCO_SET2"
-val_dir = os.path.join(dataset_root, "valid")  # Adjust if needed
+dataset_root = r"C:\Users\yadne\Desktop\24CP20\Resources\Models\RCNN_MODELS\COCO_SET"
+val_dir = os.path.join(dataset_root, "test")  # Adjust if needed
 
 # Transformations
 transform = transforms.Compose([
@@ -88,7 +88,7 @@ in_features = model.roi_heads.box_predictor.cls_score.in_features  # Get input f
 model.roi_heads.box_predictor = torchvision.models.detection.faster_rcnn.FastRCNNPredictor(in_features, num_classes)
 
 # Load trained weights
-model.load_state_dict(torch.load(r"C:\Users\yadne\Desktop\24CP20\Resources\Models\faster_rcnn_3760_10.pth", map_location=device))
+model.load_state_dict(torch.load(r"C:\Users\yadne\Desktop\24CP20\Resources\Models\faster_rcnn_3760_5.pth", map_location=device))
 
 # Move model to device
 model.to(device)

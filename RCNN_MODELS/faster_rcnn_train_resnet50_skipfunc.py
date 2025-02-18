@@ -102,12 +102,13 @@ optimizer = torch.optim.SGD(model.parameters(), lr=0.005, momentum=0.9, weight_d
 scaler = torch.GradScaler()  # Enable AMP (Automatic Mixed Precision)
 
 # Training loop
-num_epochs = 4
+num_epochs = 10
 for epoch in range(num_epochs):
     model.train()
     total_loss = 0
 
     for images, targets in train_loader:
+        print("Running")
         # Skip if the image or target is None (image with no annotations)
         images = [img.to(device) for img in images if img is not None]  # Skip None images
         targets = [target for target in targets if target is not None]  # Skip None targets
@@ -136,5 +137,5 @@ for epoch in range(num_epochs):
     print(f"Epoch {epoch+1}, Loss: {total_loss / len(train_loader)}")
 
 # Save model
-torch.save(model.state_dict(), "faster_rcnn_custom.pth")
+torch.save(model.state_dict(), "faster_rcnn_3760_10.pth")
 print("Training complete!")
