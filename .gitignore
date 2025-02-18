@@ -1,0 +1,12 @@
+# Ignore the entire COCO_SET folder
+RCNN_MODELS/COCO_SET/
+
+# Ignore the entire dataset folder
+YOLO_MODELS/NEW/dataset/
+
+# Ignore all .log files
+*.txt
+
+*.jpg
+
+*.json
