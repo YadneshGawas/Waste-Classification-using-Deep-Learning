@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 3
+names: ['Biological', 'Paper', 'Plastic']
+
+roboflow:
+  workspace: wastedataset-preprocessing
+  project: amchoproject
+  version: 3
+  license: MIT
+  url: https://universe.roboflow.com/wastedataset-preprocessing/amchoproject/dataset/3

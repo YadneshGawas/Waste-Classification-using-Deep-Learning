@@ -12,3 +12,7 @@ YOLO_MODELS/NEW/dataset/
 *.jpg
 
 *.json
+
+*.pth
+
+*.png
